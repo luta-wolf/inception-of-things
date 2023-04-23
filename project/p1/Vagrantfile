@@ -1,0 +1,55 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# master config
+MASTER_NODE_NAME = 'Jleslie'
+MASTER_NODE_HOSTNAME = 'Server'
+MASTER_NODE_IP = '192.168.56.110'
+
+# worker config
+WORKER_NODE_NAME = 'Einterdi'
+WORKER_NODE_HOSTNAME = 'ServerWorker'
+WORKER_NODE_IP = '192.168.56.111'
+
+# machines config
+MEM = 1024
+CPU = 1
+
+# create machines config
+Vagrant.configure("2") do |config|
+	config.vm.box = "bento/debian-11"
+	config.vm.provider "virtualbox" do |v|
+		v.memory = MEM
+		v.cpus = CPU
+		# for connect with SSH on both machines with no password
+		id_rsa_pub = File.read("#{Dir.home}/.ssh/id_rsa.pub")
+  		config.vm.provision "copy ssh public key", type: "shell",
+    	  inline: "echo \"#{id_rsa_pub}\" >> /home/vagrant/.ssh/authorized_keys"
+	end
+
+  # master node config
+	config.vm.define MASTER_NODE_NAME do |master|
+		master.vm.hostname = MASTER_NODE_HOSTNAME
+		master.vm.network :private_network, ip: MASTER_NODE_IP
+		# configure shared folder
+		master.vm.synced_folder ".", "/vagrant", type: "virtualbox"
+		# run script for master node with argument
+		master.vm.provision "shell", privileged: true, path: "scripts/master_node_setup.sh", args: [MASTER_NODE_IP]
+		master.vm.provider "virtualbox" do |v|
+			v.name = MASTER_NODE_NAME
+		end
+	end
+
+  # worker node config
+	config.vm.define WORKER_NODE_NAME do |worker|
+		worker.vm.hostname = WORKER_NODE_HOSTNAME
+		worker.vm.network :private_network, ip: WORKER_NODE_IP
+		# configure shared folder
+		worker.vm.synced_folder ".", "/vagrant", type: "virtualbox"
+		# run script for worker node with arguments
+		worker.vm.provision "shell", privileged: true, path: "scripts/worker_node_setup.sh", args: [MASTER_NODE_IP, WORKER_NODE_IP]
+		worker.vm.provider "virtualbox" do |v|
+			v.name = WORKER_NODE_NAME 
+		end
+	end
+end
